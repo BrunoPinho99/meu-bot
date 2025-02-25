@@ -83,7 +83,7 @@ async function exibirDigitando(whatsappNumberId, numeroUsuario, accessToken) {
     );
 
     // Aguarda 2 segundos antes de enviar a resposta
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   } catch (error) {
     console.error("❌ Erro ao exibir 'digitando...':", error.response?.data || error.message);
   }
