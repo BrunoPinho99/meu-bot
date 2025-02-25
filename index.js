@@ -64,41 +64,29 @@ async function buscarPassagens(origem, destino, data) {
 
 // Função para mostrar "digitando..."
 async function exibirDigitando(whatsappNumberId, numeroUsuario, accessToken) {
-  await axios.post(
-    `https://graph.facebook.com/v22.0/${whatsappNumberId}/messages`,
-    {
-      messaging_product: "whatsapp",
-      to: numeroUsuario,
-      type: "typing_on",
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v22.0/${whatsappNumberId}/messages`,
+      {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: numeroUsuario,
+        type: "reaction",  // Esse era o erro: o tipo precisa ser "reaction"
+        reaction: { emoji: "…" } // WhatsApp não tem um balão de "digitando", então usamos "…" como workaround
       },
-    }
-  );
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-  // Aguarda 2 segundos antes de enviar a resposta
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-}
-
-// Função para marcar a mensagem como lida
-async function marcarComoLida(whatsappNumberId, messageId, accessToken) {
-  await axios.post(
-    `https://graph.facebook.com/v22.0/${whatsappNumberId}/messages`,
-    {
-      messaging_product: "whatsapp",
-      status: "read",
-      message_id: messageId,
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
+    // Aguarda 2 segundos antes de enviar a resposta
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  } catch (error) {
+    console.error("❌ Erro ao exibir 'digitando...':", error.response?.data || error.message);
+  }
 }
 
 // Função para consultar o Google Gemini
