@@ -25,91 +25,23 @@ console.log("GOOGLE_GEMINI_API_KEY:", GOOGLE_GEMINI_API_KEY);
 console.log("WHATSAPP_BUSINESS_ID:", WHATSAPP_BUSINESS_ID);
 console.log("WHATSAPP_BUSINESS_NUMBER:", WHATSAPP_BUSINESS_NUMBER);
 
-// Função para buscar passagens aéreas
-async function buscarPassagens(origem, destino, data) {
-  try {
-    const options = {
-      method: "GET",
-      url: "https://skyscanner44.p.rapidapi.com/search",
-      params: {
-        from: origem,
-        to: destino,
-        departDate: data,
-        currency: "BRL",
-        adults: "1",
-      },
-      headers: {
-        "X-RapidAPI-Key": RAPIDAPI_KEY,
-        "X-RapidAPI-Host": RAPIDAPI_HOST,
-      },
-    };
-
-    const response = await axios.request(options);
-    const resultados = response.data.itineraries;
-
-    if (!resultados || resultados.length === 0) {
-      return "Não encontrei passagens para essa data. Tente outra!";
-    }
-
-    let primeiraPassagem = resultados[0];
-    let preco = primeiraPassagem.price.formatted;
-    let companhia = primeiraPassagem.legs[0].carriers[0].name;
-
-    return `✈️ Encontrei uma passagem para ${destino} com a ${companhia} por ${preco}!`;
-  } catch (error) {
-    console.error("❌ Erro ao buscar passagens:", error.response?.data || error.message);
-    return "Houve um erro ao buscar passagens. Tente novamente mais tarde!";
-  }
-}
-
-// Função para mostrar "digitando..."
-async function exibirDigitando(whatsappNumberId, numeroUsuario, accessToken) {
-  try {
-    await axios.post(
-      `https://graph.facebook.com/v22.0/${whatsappNumberId}/messages`,
-      {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: numeroUsuario,
-        type: "reaction",  // Esse era o erro: o tipo precisa ser "reaction"
-        reaction: { emoji: "…" } // WhatsApp não tem um balão de "digitando", então usamos "…" como workaround
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    // Aguarda 2 segundos antes de enviar a resposta
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  } catch (error) {
-    console.error("❌ Erro ao exibir 'digitando...':", error.response?.data || error.message);
-  }
-}
-
 // Função para consultar o Google Gemini
 async function chatWithAI(userMessage) {
   try {
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
       {
-        contents: [{ parts: [{ text: userMessage }] }],
+        contents: [{ parts: [{ text: userMessage }] }]
       },
       {
         headers: {
           "Content-Type": "application/json",
-        },
+          "x-goog-api-key": GOOGLE_GEMINI_API_KEY
+        }
       }
     );
 
-    let responseText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!responseText) {
-      return "Não entendi, pode repetir?";
-    }
-
-    return responseText;
+    return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Não entendi, pode repetir?";
   } catch (error) {
     console.error("❌ Erro ao consultar Google Gemini:", error.response?.data || error.message);
     return "Houve um erro ao processar sua mensagem. Tente novamente mais tarde!";
@@ -141,20 +73,20 @@ app.post("/webhook", async (req, res) => {
 
     if (message) {
       let senderPhone = message.from;
-      let text = message.text?.body.toLowerCase() || "Mensagem recebida sem texto";
+      let text = message.text?.body || "Mensagem recebida sem texto";
 
       console.log(`📩 Mensagem de ${senderPhone}: ${text}`);
 
-      let responseMessage = "";
+      // Obtém resposta do Google Gemini
+      let responseMessage = await chatWithAI(text);
 
-      if (text.includes("passagem")) {
-        responseMessage = await buscarPassagens("GRU", "JFK", "2025-03-15"); // Exemplo de dados fixos
-      } else {
-        responseMessage = await chatWithAI(text);
-      }
+      // Teste temporário da função chatWithAI
+      (async () => {
+        const resposta = await chatWithAI("Olá, como você está?");
+        console.log("Resposta do Google Gemini:", resposta);
+      })();
 
-      await marcarComoLida(WHATSAPP_BUSINESS_ID, message.id, TOKEN);
-      await exibirDigitando(WHATSAPP_BUSINESS_ID, senderPhone, TOKEN);
+      // Envia resposta para o usuário
       await sendMessage(senderPhone, responseMessage);
     }
 
