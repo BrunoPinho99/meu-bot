@@ -11,7 +11,6 @@ app.use(bodyParser.json());
 const TOKEN = process.env.TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WHATSAPP_BUSINESS_ID = process.env.WHATSAPP_BUSINESS_ID;
-const APP_SECRET = process.env.APP_SECRET;
 const WHATSAPP_BUSINESS_NUMBER = process.env.WHATSAPP_BUSINESS_NUMBER;
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 const RAPIDAPI_HOST = "skyscanner44.p.rapidapi.com";
@@ -85,7 +84,7 @@ async function exibirDigitando(whatsappNumberId, numeroUsuario, accessToken) {
     );
 
     // Aguarda 2 segundos antes de enviar a resposta
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   } catch (error) {
     console.error("❌ Erro ao exibir 'digitando...':", error.response?.data || error.message);
   }
