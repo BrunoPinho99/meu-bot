@@ -80,7 +80,7 @@ async function exibirDigitando(whatsappNumberId, numeroUsuario, accessToken) {
   );
 
   // Aguarda 2 segundos antes de enviar a resposta
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 }
 
 // Função para marcar a mensagem como lida
