@@ -134,6 +134,38 @@ app.get("/webhook", (req, res) => {
 // Webhook para receber mensagens do WhatsApp
 app.post("/webhook", async (req, res) => {
   console.log("📩 Webhook recebido:", JSON.stringify(req.body, null, 2));
+  app.post("/webhook", async (req, res) => {
+    if (req.body.object === "whatsapp_business_account") {
+      let message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+      if (message) {
+        let senderPhone = message.from;
+        let responseMessage = "";
+  
+        if (message.text) {
+          responseMessage = await chatWithAI(message.text.body, senderPhone);
+        } else if (message.type === "audio") {
+          const audioUrl = message.audio?.url;
+          console.log("URL do áudio recebida:", audioUrl); // Log da URL do áudio
+  
+          if (audioUrl) {
+            const transcribedText = await transcribeAudio(audioUrl);
+            console.log("Texto transcrito:", transcribedText); // Log do texto transcrito
+  
+            if (transcribedText && transcribedText.trim() !== "") {
+              responseMessage = await chatWithAI(transcribedText, senderPhone);
+            } else {
+              responseMessage = "Não consegui entender o áudio. Por favor, tente novamente.";
+            }
+          }
+        }
+  
+        await sendMessage(senderPhone, responseMessage);
+      }
+      res.sendStatus(200);
+    } else {
+      res.sendStatus(404);
+    }
+  });
 
   if (req.body.object === "whatsapp_business_account") {
     let entry = req.body.entry?.[0];
@@ -158,6 +190,8 @@ app.post("/webhook", async (req, res) => {
 
   res.sendStatus(404);
 });
+
+
 
 // Função para enviar mensagens no WhatsApp
 async function sendMessage(to, text) {
