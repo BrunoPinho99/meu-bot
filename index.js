@@ -89,11 +89,10 @@ app.post("/webhook", async (req, res) => {
 
 async function chatWithAI(userMessage, senderPhone) {
 
-  conversations[senderPhone].push({ role: "user", text: userMessage });
 
   try {
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
       {
         contents: [
           { parts: conversations[senderPhone].map(msg => ({ text: msg.text })) }
