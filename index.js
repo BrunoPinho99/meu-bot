@@ -2,9 +2,9 @@ require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
 const bodyParser = require("body-parser");
-
 const app = express();
 const PORT = 3000;
+const speech = require('@google-cloud/speech');
 app.use(bodyParser.json());
 
 // Pegando as variáveis do .env
@@ -25,6 +25,62 @@ console.log("GOOGLE_GEMINI_API_KEY:", GOOGLE_GEMINI_API_KEY);
 console.log("WHATSAPP_BUSINESS_ID:", WHATSAPP_BUSINESS_ID);
 console.log("WHATSAPP_BUSINESS_NUMBER:", WHATSAPP_BUSINESS_NUMBER);
 
+
+// Configuração do cliente do Google Speech-to-Text
+const client = new speech.SpeechClient();
+
+async function transcribeAudio(audioUrl) {
+  try {
+    const response = await axios({
+      url: audioUrl,
+      method: "GET",
+      responseType: "stream",
+    });
+
+    const filePath = `audio.ogg`;
+    const writer = fs.createWriteStream(filePath);
+    response.data.pipe(writer);
+
+    return new Promise((resolve, reject) => {
+      writer.on("finish", async () => {
+        const file = fs.readFileSync(filePath);
+        const audioBytes = file.toString('base64');
+
+        const audio = {
+          content: audioBytes,
+        };
+
+        const config = {
+          encoding: 'OGG_OPUS',
+          sampleRateHertz: 16000,
+          languageCode: 'pt-BR', // Altere para o idioma desejado
+        };
+
+        const request = {
+          audio: audio,
+          config: config,
+        };
+
+        try {
+          const [response] = await client.recognize(request);
+          const transcription = response.results
+            .map(result => result.alternatives[0].transcript)
+            .join('\n');
+          fs.unlinkSync(filePath);
+          resolve(transcription);
+        } catch (error) {
+          console.error("Erro ao transcrever áudio:", error);
+          reject("Não consegui entender o áudio.");
+        }
+      });
+
+      writer.on("error", reject);
+    });
+  } catch (error) {
+    console.error("Erro ao baixar o áudio:", error);
+    return "Não consegui baixar o áudio.";
+  }
+}
 // Armazena as conversas dos usuários
 const conversations = {};
 
