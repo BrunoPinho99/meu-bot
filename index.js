@@ -89,8 +89,17 @@ app.post("/webhook", async (req, res) => {
 
 async function chatWithAI(userMessage, senderPhone) {
   if (!conversations[senderPhone]) {
-    conversations[senderPhone] = [];
-  }
+    conversations[senderPhone] = [
+
+      {
+        role: "system",
+        text: "Você é um assistente amigável, engraçado e que conversa de forma natural, como se fosse um amigo do usuário. Use gírias leves, não seja robótico e evite respostas formais demais."
+      }
+
+    ];
+
+  };
+  
 
   conversations[senderPhone].push({ role: "user", text: userMessage });
 
