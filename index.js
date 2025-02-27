@@ -85,6 +85,37 @@ app.post("/webhook", async (req, res) => {
 
       // Envia resposta para o usuário
       await sendMessage(senderPhone, responseMessage);
+      const conversations = {}; // Salvar mensagens anteriores
+
+async function chatWithAI(userMessage, senderPhone) {
+  if (!conversations[senderPhone]) {
+    conversations[senderPhone] = [];
+  }
+
+  conversations[senderPhone].push({ role: "user", text: userMessage });
+
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+      {
+        contents: [
+          { parts: conversations[senderPhone].map(msg => ({ text: msg.text })) }
+        ]
+      },
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+    const aiResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Não entendi, pode repetir?";
+
+    conversations[senderPhone].push({ role: "assistant", text: aiResponse });
+
+    return aiResponse;
+  } catch (error) {
+    console.error("❌ Erro ao consultar Google Gemini:", error.response?.data || error.message);
+    return "Houve um erro ao processar sua mensagem. Tente novamente mais tarde!";
+  }
+}
+
     }
 
     return res.sendStatus(200);
