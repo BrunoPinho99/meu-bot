@@ -25,26 +25,42 @@ console.log("GOOGLE_GEMINI_API_KEY:", GOOGLE_GEMINI_API_KEY);
 console.log("WHATSAPP_BUSINESS_ID:", WHATSAPP_BUSINESS_ID);
 console.log("WHATSAPP_BUSINESS_NUMBER:", WHATSAPP_BUSINESS_NUMBER);
 
+// Armazena as conversas dos usuários
+const conversations = {};
+
 // Função para consultar o Google Gemini
-async function chatWithAI(userMessage) {
+async function chatWithAI(userMessage, senderPhone) {
   try {
+    // Inicializa o histórico se ainda não existir
+    if (!conversations[senderPhone]) {
+      conversations[senderPhone] = [];
+    }
+
+    // Adiciona a mensagem do usuário ao histórico
+    conversations[senderPhone].push({ role: "user", text: userMessage });
+
     const response = await axios.post(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
       {
-        contents: [{ parts: [{ text: userMessage }] }]
+        contents: [
+          { parts: conversations[senderPhone].map(msg => ({ text: msg.text })) }
+        ]
       },
-      {
-        headers: { "Content-Type": "application/json" }
-      }
+      { headers: { "Content-Type": "application/json" } }
     );
 
-    // Corrigindo a extração da resposta
-    return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Não entendi, pode repetir?";
+    const aiResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Não entendi, pode repetir?";
+
+    // Adiciona a resposta da IA ao histórico
+    conversations[senderPhone].push({ role: "assistant", text: aiResponse });
+
+    return aiResponse;
   } catch (error) {
     console.error("❌ Erro ao consultar Google Gemini:", error.response?.data || error.message);
     return "Houve um erro ao processar sua mensagem. Tente novamente mais tarde!";
   }
 }
+
 // Webhook para verificação inicial do WhatsApp
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
@@ -75,43 +91,10 @@ app.post("/webhook", async (req, res) => {
       console.log(`📩 Mensagem de ${senderPhone}: ${text}`);
 
       // Obtém resposta do Google Gemini
-      let responseMessage = await chatWithAI(text);
-
-      // Teste temporário da função chatWithAI
-      (async () => {
-        const resposta = await chatWithAI("Olá, como você está?");
-        console.log("Resposta do Google Gemini:", resposta);
-      })();
+      let responseMessage = await chatWithAI(text, senderPhone);
 
       // Envia resposta para o usuário
       await sendMessage(senderPhone, responseMessage);
-      const conversations = {}; // Salvar mensagens anteriores
-
-async function chatWithAI(userMessage, senderPhone) {
-
-
-  try {
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
-      {
-        contents: [
-          { parts: conversations[senderPhone].map(msg => ({ text: msg.text })) }
-        ]
-      },
-      { headers: { "Content-Type": "application/json" } }
-    );
-
-    const aiResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Não entendi, pode repetir?";
-
-    conversations[senderPhone].push({ role: "assistant", text: aiResponse });
-
-    return aiResponse;
-  } catch (error) {
-    console.error("❌ Erro ao consultar Google Gemini:", error.response?.data || error.message);
-    return "Houve um erro ao processar sua mensagem. Tente novamente mais tarde!";
-  }
-}
-
     }
 
     return res.sendStatus(200);
