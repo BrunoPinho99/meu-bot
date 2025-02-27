@@ -93,11 +93,7 @@ async function chatWithAI(userMessage, senderPhone) {
     
     [
 
-      {
-        role: "system",
-        text: "Você é um assistente amigável, engraçado e que conversa de forma natural, como se fosse um amigo do usuário. Use gírias leves, não seja robótico e evite respostas formais demais."
-      }
-      
+      { role: "assistant", text: "Olá! Como posso te ajudar?" }
 
     ];
 
