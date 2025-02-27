@@ -88,7 +88,6 @@ app.post("/webhook", async (req, res) => {
       const conversations = {}; // Salvar mensagens anteriores
 
 async function chatWithAI(userMessage, senderPhone) {
-  if (!conversations[senderPhone]) {}  
 
   conversations[senderPhone].push({ role: "user", text: userMessage });
 
