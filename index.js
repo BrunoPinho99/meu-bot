@@ -162,20 +162,32 @@ app.post("/webhook", async (req, res) => {
       let senderPhone = message.from;
       let responseMessage = "";
 
-      // Se for uma mensagem de texto e relacionada a voos
+      // Verifica se a mensagem é sobre voos
       if (message.text && isValidFlightQuery(message.text.body)) {
         const flightDetails = extractFlightDetails(message.text.body);
 
         if (flightDetails) {
-          responseMessage = await fetchFlights(
+          // 🔹 Busca voos primeiro
+          responseMessage = `🔎 Buscando as melhores passagens de ${flightDetails.origin} para ${flightDetails.destination}...\n\n`;
+          const flightResults = await fetchFlights(
             flightDetails.origin,
             flightDetails.destination,
             flightDetails.date
           );
+
+          // Se houver passagens, retorna as opções de voo diretamente
+          if (!flightResults.includes("Nenhuma passagem encontrada")) {
+            responseMessage += flightResults;
+          } else {
+            // Se não encontrar voos, recorre à IA
+            responseMessage = await chatWithAI(message.text.body, senderPhone);
+          }
         } else {
+          // Se não conseguiu extrair os detalhes, usa a IA como fallback
           responseMessage = await chatWithAI(message.text.body, senderPhone);
         }
       } else {
+        // Mensagem padrão caso a consulta não seja sobre voos
         responseMessage = "Olá! Como posso ajudá-lo a encontrar passagens aéreas hoje?";
       }
 
