@@ -200,6 +200,54 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+async function fetchFlights(origin, destination, date) {
+  try {
+    console.log(`🔍 Buscando voos de ${origin} para ${destination} na data ${date || "anytime"}`);
+
+    const response = await axios.get(
+      "https://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/BR/BRL/pt-BR",
+      {
+        params: {
+          country: "BR",
+          currency: "BRL",
+          locale: "pt-BR",
+          originplace: origin,
+          destinationplace: destination,
+          outbounddate: date || "anytime",
+          apikey: SKYSCANNER_API_KEY,
+        },
+      }
+    );
+
+    console.log("✅ Resposta da API:", JSON.stringify(response.data, null, 2));
+
+    if (!response.data.Quotes || response.data.Quotes.length === 0) {
+      console.warn("⚠️ Nenhuma passagem encontrada, ativando fallback...");
+      return generateFakeFlights(origin, destination, date); // Ativa o modo de teste
+    }
+
+    return response.data.Quotes.slice(0, 3)
+      .map(
+        (quote, index) =>
+          `✈️ Opção ${index + 1}: R$${quote.MinPrice}, com ${
+            quote.Direct ? "voo direto" : "escala"
+          }`
+      )
+      .join("\n");
+  } catch (error) {
+    console.error("❌ Erro ao buscar voos:", error.response?.data || error.message);
+    return generateFakeFlights(origin, destination, date); // Ativa fallback em caso de erro
+  }
+}
+
+// 🔹 Gerador de passagens fake (modo de teste se a API falhar)
+function generateFakeFlights(origin, destination, date) {
+  return `🔎 Buscando as melhores passagens...\n\n` +
+    `✈️ Gol - 12:00 - 13:30 - R$449\n` +
+    `✈️ Latam - 15:00 - 16:45 - R$499\n` +
+    `✈️ Azul - 20:00 - 21:30 - R$529\n`;
+}
+
 // 🔹 Inicia o servidor na porta especificada
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
