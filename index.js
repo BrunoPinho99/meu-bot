@@ -125,15 +125,21 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+// Função para enviar mensagens no WhatsApp
 async function sendMessage(to, text) {
   try {
+    if (!text || typeof text !== "string" || text.trim() === "") {
+      console.error("❌ Mensagem vazia detectada. Não será enviada.");
+      return;
+    }
+
     await axios.post(
       `${WHATSAPP_API_URL}${WHATSAPP_BUSINESS_ID}/messages`,
       {
         messaging_product: "whatsapp",
         to,
         type: "text",
-        text: { body: text },
+        text: { body: text }, // Certifique-se de que 'text' existe e é uma string
       },
       {
         headers: {
@@ -142,13 +148,9 @@ async function sendMessage(to, text) {
         },
       }
     );
+
     console.log(`✅ Mensagem enviada para ${to}: ${text}`);
   } catch (error) {
-    console.error("Erro ao enviar mensagem:", error.response?.data || error.message);
+    console.error("❌ Erro ao enviar mensagem:", error.response?.data || error.message);
   }
 }
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`🌐 Webhook URL: https://0.0.0.0:${PORT}/webhook`);
-});
