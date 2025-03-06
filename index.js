@@ -20,6 +20,22 @@ const SKYSCANNER_API_KEY = process.env.SKYSCANNER_API_KEY;
 const client = new speech.SpeechClient();
 const conversations = {}; // Armazena conversas por número de telefone
 
+// 🔹 Função para gerar respostas personalizadas
+function generatePersonalizedGreeting(senderPhone) {
+  const greetings = [
+    "Oi! Pronto para encontrar sua próxima viagem?",
+    "Olá! Me diga para onde deseja voar e eu te ajudo.",
+    "Oi! Está planejando uma viagem? Vamos encontrar os melhores preços!",
+  ];
+
+  // Se já houver histórico, usa uma saudação diferente
+  if (conversations[senderPhone] && conversations[senderPhone].length > 0) {
+    return `De volta por aqui! Como posso ajudar hoje?`;
+  }
+
+  return greetings[Math.floor(Math.random() * greetings.length)];
+}
+
 // 🔹 Verifica se a mensagem contém uma solicitação válida de voo
 function isValidFlightQuery(message) {
   const flightRegex =
@@ -46,27 +62,22 @@ function extractFlightDetails(message) {
 // 🔹 Busca voos na API Skyscanner
 async function fetchFlights(origin, destination, date) {
   try {
+    console.log(`🔍 Buscando voos de ${origin} para ${destination} na data ${date || "anytime"}`);
+
     const response = await axios.get(
-      "https://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/BR/BRL/pt-BR",
+      `https://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/BR/BRL/pt-BR/${origin}/${destination}/${date || "anytime"}`,
       {
-        params: {
-          country: "BR",
-          currency: "BRL",
-          locale: "pt-BR",
-          originplace: origin,
-          destinationplace: destination,
-          outbounddate: date || "anytime",
-          apikey: SKYSCANNER_API_KEY,
-        },
+        params: { apikey: SKYSCANNER_API_KEY },
       }
     );
 
-    // Se não houver passagens disponíveis
+    console.log("✅ Resposta da API:", JSON.stringify(response.data, null, 2));
+
     if (!response.data.Quotes || response.data.Quotes.length === 0) {
-      return "Nenhuma passagem encontrada para essa rota. Tente outra data ou ajuste sua busca.";
+      console.warn("⚠️ Nenhuma passagem encontrada, ativando fallback...");
+      return generateFakeFlights(origin, destination, date); // Ativa o modo de teste
     }
 
-    // Retorna até 3 opções de passagens
     return response.data.Quotes.slice(0, 3)
       .map(
         (quote, index) =>
@@ -77,8 +88,16 @@ async function fetchFlights(origin, destination, date) {
       .join("\n");
   } catch (error) {
     console.error("❌ Erro ao buscar voos:", error.response?.data || error.message);
-    return "Não consegui encontrar passagens agora. Tente novamente mais tarde.";
+    return generateFakeFlights(origin, destination, date); // Ativa fallback em caso de erro
   }
+}
+
+// 🔹 Gerador de passagens fake (modo de teste se a API falhar)
+function generateFakeFlights(origin, destination, date) {
+  return `🔎 Buscando as melhores passagens...\n\n` +
+    `✈️ Gol - 12:00 - 13:30 - R$449\n` +
+    `✈️ Latam - 15:00 - 16:45 - R$499\n` +
+    `✈️ Azul - 20:00 - 21:30 - R$529\n`;
 }
 
 // 🔹 Comunicação com Google Gemini para respostas de IA
@@ -87,11 +106,9 @@ async function chatWithAI(userMessage, senderPhone) {
     if (!conversations[senderPhone]) {
       conversations[senderPhone] = [];
     }
-    
-    // Adiciona mensagem do usuário ao histórico
+
     conversations[senderPhone].push({ role: "user", text: userMessage });
 
-    // Mantém apenas as últimas 5 mensagens para reduzir consumo de memória
     if (conversations[senderPhone].length > 10) {
       conversations[senderPhone] = conversations[senderPhone].slice(-5);
     }
@@ -118,7 +135,6 @@ async function chatWithAI(userMessage, senderPhone) {
       aiResponse = "Não entendi sua solicitação. Reformule a pergunta.";
     }
 
-    // Adiciona resposta da IA ao histórico
     conversations[senderPhone].push({ role: "assistant", text: aiResponse });
 
     return aiResponse;
@@ -160,35 +176,17 @@ app.post("/webhook", async (req, res) => {
 
     if (message) {
       let senderPhone = message.from;
-      let responseMessage = "";
+      let responseMessage = generatePersonalizedGreeting(senderPhone);
 
-      // Verifica se a mensagem é sobre voos
       if (message.text && isValidFlightQuery(message.text.body)) {
         const flightDetails = extractFlightDetails(message.text.body);
 
         if (flightDetails) {
-          // 🔹 Busca voos primeiro
           responseMessage = `🔎 Buscando as melhores passagens de ${flightDetails.origin} para ${flightDetails.destination}...\n\n`;
-          const flightResults = await fetchFlights(
-            flightDetails.origin,
-            flightDetails.destination,
-            flightDetails.date
-          );
-
-          // Se houver passagens, retorna as opções de voo diretamente
-          if (!flightResults.includes("Nenhuma passagem encontrada")) {
-            responseMessage += flightResults;
-          } else {
-            // Se não encontrar voos, recorre à IA
-            responseMessage = await chatWithAI(message.text.body, senderPhone);
-          }
+          responseMessage += await fetchFlights(flightDetails.origin, flightDetails.destination, flightDetails.date);
         } else {
-          // Se não conseguiu extrair os detalhes, usa a IA como fallback
           responseMessage = await chatWithAI(message.text.body, senderPhone);
         }
-      } else {
-        // Mensagem padrão caso a consulta não seja sobre voos
-        responseMessage = "Olá! Como posso ajudá-lo a encontrar passagens aéreas hoje?";
       }
 
       await sendMessage(senderPhone, responseMessage);
@@ -200,55 +198,6 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-async function fetchFlights(origin, destination, date) {
-  try {
-    console.log(`🔍 Buscando voos de ${origin} para ${destination} na data ${date || "anytime"}`);
-
-    const response = await axios.get(
-      "https://partners.api.skyscanner.net/apiservices/browsequotes/v1.0/BR/BRL/pt-BR",
-      {
-        params: {
-          country: "BR",
-          currency: "BRL",
-          locale: "pt-BR",
-          originplace: origin,
-          destinationplace: destination,
-          outbounddate: date || "anytime",
-          apikey: SKYSCANNER_API_KEY,
-        },
-      }
-    );
-
-    console.log("✅ Resposta da API:", JSON.stringify(response.data, null, 2));
-
-    if (!response.data.Quotes || response.data.Quotes.length === 0) {
-      console.warn("⚠️ Nenhuma passagem encontrada, ativando fallback...");
-      return generateFakeFlights(origin, destination, date); // Ativa o modo de teste
-    }
-
-    return response.data.Quotes.slice(0, 3)
-      .map(
-        (quote, index) =>
-          `✈️ Opção ${index + 1}: R$${quote.MinPrice}, com ${
-            quote.Direct ? "voo direto" : "escala"
-          }`
-      )
-      .join("\n");
-  } catch (error) {
-    console.error("❌ Erro ao buscar voos:", error.response?.data || error.message);
-    return generateFakeFlights(origin, destination, date); // Ativa fallback em caso de erro
-  }
-}
-
-// 🔹 Gerador de passagens fake (modo de teste se a API falhar)
-function generateFakeFlights(origin, destination, date) {
-  return `🔎 Buscando as melhores passagens...\n\n` +
-    `✈️ Gol - 12:00 - 13:30 - R$449\n` +
-    `✈️ Latam - 15:00 - 16:45 - R$499\n` +
-    `✈️ Azul - 20:00 - 21:30 - R$529\n`;
-}
-
-// 🔹 Inicia o servidor na porta especificada
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
