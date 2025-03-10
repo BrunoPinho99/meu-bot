@@ -25,9 +25,7 @@ const conversations = {}; // Armazena conversas por número de telefone
 // 🔹 Função para gerar respostas personalizadas
 function generatePersonalizedGreeting(senderPhone) {
   const greetings = [
-    "Oi! Pronto para encontrar sua próxima viagem?",
-    "Olá! Me diga para onde deseja voar e eu te ajudo.",
-    "Oi! Está planejando uma viagem? Vamos encontrar os melhores preços!",
+    ,
   ];
 
   // Se já houver histórico, usa uma saudação diferente
