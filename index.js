@@ -173,9 +173,26 @@ async function sendMessage(to, message) {
 }
 
 // 🔹 Processa áudio recebido
-async function processAudio(audioUrl, senderPhone) {
+async function processAudio(audioId, senderPhone) {
   try {
-    const audioResponse = await axios.get(audioUrl, { responseType: "stream" });
+    if (!audioId) {
+      console.error("❌ ID do áudio não fornecido.");
+      return null;
+    }
+
+    // Construa a URL do áudio usando o ID recebido
+    const audioUrl = `${WHATSAPP_API_URL}/${WHATSAPP_BUSINESS_ID}/media/${audioId}`;
+    console.log("🔗 URL do áudio:", audioUrl);
+
+    // Baixe o áudio
+    const audioResponse = await axios.get(audioUrl, {
+      responseType: "stream",
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+      },
+    });
+
+    // Transcreva o áudio
     const transcription = await client.recognize({
       audio: { content: audioResponse.data },
       config: {
@@ -211,21 +228,33 @@ app.post("/webhook", async (req, res) => {
       // Verifica se a mensagem é de texto ou áudio
       if (message.text) {
         userMessage = message.text.body;
+        console.log("📝 Mensagem de texto recebida:", userMessage);
       } else if (message.audio) {
+        console.log("🎤 Áudio recebido. Processando...");
         userMessage = await processAudio(message.audio.id, senderPhone);
+        console.log("🎤 Áudio transcrito:", userMessage);
+      }
+
+      // Valida se userMessage não é null ou undefined
+      if (!userMessage) {
+        console.error("❌ Mensagem inválida ou áudio não transcrito.");
+        return res.sendStatus(200); // Ignora mensagens inválidas
       }
 
       // Verifica o gatilho de ativação
       if (!userMessage.toLowerCase().includes("oi, bot") && !userMessage.toLowerCase().includes("procurar passagens")) {
-        return res.sendStatus(200); // Ignora mensagens sem gatilho
+        console.log("🚫 Mensagem ignorada (sem gatilho):", userMessage);
+        return res.sendStatus(200);
       }
 
+      console.log("🔧 Processando mensagem:", userMessage);
       let responseMessage = generatePersonalizedGreeting(senderPhone);
 
       if (isValidFlightQuery(userMessage)) {
         const flightDetails = extractFlightDetails(userMessage);
 
         if (flightDetails) {
+          console.log("✈️ Detalhes do voo:", flightDetails);
           responseMessage = `🔎 Buscando as melhores passagens de ${flightDetails.origin} para ${flightDetails.destination}...\n\n`;
           responseMessage += await fetchFlights(flightDetails.origin, flightDetails.destination, flightDetails.date);
         } else {
@@ -233,6 +262,7 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      console.log("📤 Resposta enviada:", responseMessage);
       await sendMessage(senderPhone, responseMessage);
     }
 
