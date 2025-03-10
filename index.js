@@ -242,11 +242,7 @@ app.post("/webhook", async (req, res) => {
       }
 
       // Verifica o gatilho de ativação
-      if (!userMessage.toLowerCase().includes("oi, bot") && !userMessage.toLowerCase().includes("procurar passagens")) {
-        console.log("🚫 Mensagem ignorada (sem gatilho):", userMessage);
-        return res.sendStatus(200);
-      }
-
+      
       console.log("🔧 Processando mensagem:", userMessage);
       let responseMessage = generatePersonalizedGreeting(senderPhone);
 
