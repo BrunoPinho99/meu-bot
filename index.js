@@ -25,6 +25,9 @@ const conversations = {}; // Armazena conversas por número de telefone
 // 🔹 Função para gerar respostas personalizadas
 function generatePersonalizedGreeting(senderPhone) {
   const greetings = [
+    "Olá, como posso ajudar?",
+    "Bem-vindo ao nosso suporte!",
+    "Oi, tudo bem? Em que posso ajudar?"
     ,
   ];
 
